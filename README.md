@@ -6,6 +6,8 @@
 ![Static Badge](https://img.shields.io/badge/PHP-black?style=plastic&logo=php&logoColor=white&logoSize=auto&color=green)
 ![Static Badge](https://img.shields.io/badge/CSS-black?style=plastic&logo=css3&logoColor=white&logoSize=auto&color=blue)
 ![Static Badge](https://img.shields.io/badge/JavaScript-black?style=plastic&logo=javascript&logoColor=white&logoSize=auto&color=purple)
+![Static Badge](https://img.shields.io/badge/MySQL-brown%20?style=plastic&logo=mysql&logoColor=white&logoSize=auto)
+
 
 
 GanttFlow est un outil de gestion de projet Gantt en ligne, gratuit et collaboratif, conçu pour simplifier la planification et le suivi des projets d'équipe. Ce projet est né d'un besoin concret : offrir une alternative gratuite et accessible aux solutions Gantt existantes, particulièrement pour les projets étudiants et les petites équipes.
