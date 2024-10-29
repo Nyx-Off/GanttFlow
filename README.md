@@ -27,8 +27,6 @@ L'application est construite autour de quelques concepts clés :
 - Une API REST pour la communication client-serveur
 - Un système de mise à jour en temps réel des modifications
 
-## 🛠 Aspects Techniques
-
 ### Architecture et Technologies
 
 GanttFlow est construit sur une architecture moderne orientée API, permettant une séparation claire entre le frontend et le backend. Cette approche facilite la maintenance et permet d'éventuelles évolutions futures vers des applications mobiles natives.
