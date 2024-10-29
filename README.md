@@ -29,94 +29,75 @@ L'application est construite autour de quelques concepts clés :
 
 ### Architecture et Technologies
 
-GanttFlow est construit sur une architecture moderne orientée API, permettant une séparation claire entre le frontend et le backend. Cette approche facilite la maintenance et permet d'éventuelles évolutions futures vers des applications mobiles natives.
+GanttFlow utilise une architecture simple et efficace basée sur une API PHP et une interface JavaScript. Le projet est structuré pour être léger et facile à maintenir.
 
 #### Frontend
-L'interface utilisateur est développée en JavaScript vanilla, un choix délibéré pour optimiser les performances et minimiser la taille du bundle. L'application utilise les dernières fonctionnalités d'ES6+ :
+L'interface utilisateur est développée en JavaScript vanilla, sans dépendances externes, ce qui garantit des performances optimales. Voici un exemple réel de la gestion des tâches :
 
 ```javascript
-// Exemple de gestion des tâches avec les fonctionnalités modernes de JS
-class TaskManager {
-    #tasks = new Map();
-    
-    async addTask(taskData) {
-        try {
-            const response = await fetch('/api/tasks', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(taskData)
-            });
-            
-            const result = await response.json();
-            this.#tasks.set(result.id, result);
-            this.emit('taskAdded', result);
-        } catch (error) {
-            console.error('Erreur lors de l'ajout de la tâche:', error);
+// Extrait de gantt.js - Gestion des tâches
+async function fetchTasks() {
+    try {
+        const response = await fetch('api/tasks.php');
+        const data = await response.json();
+        if (data.success) {
+            tasks = data.data;
+            renderTasks();
+        } else {
+            console.error('Erreur lors du chargement des tâches:', data.error);
         }
+    } catch (error) {
+        console.error('Erreur lors du chargement des tâches:', error);
     }
 }
 ```
 
-Le CSS utilise des variables personnalisées et une architecture modulaire :
+Le CSS utilise des variables personnalisées pour une meilleure maintenabilité :
 
 ```css
+/* Extrait de style.css */
 :root {
     --primary-color: #4a9eff;
-    --secondary-color: #34d399;
-    --danger-color: #ef4444;
     --background-color: #ffffff;
+    --border-color: #e5e7eb;
     --text-color: #374151;
-}
-
-/* Exemple de composant modulaire */
-.gantt-task {
-    background-color: var(--background-color);
-    border: 1px solid var(--primary-color);
-    transition: transform 0.2s ease;
+    --hover-bg: #f9fafb;
+    --modal-overlay: rgba(0, 0, 0, 0.5);
+    --error-color: #ef4444;
+    --success-color: #10b981;
 }
 ```
 
 #### Backend
 
-Le backend est structuré autour d'une API REST en PHP, utilisant PDO pour une gestion sécurisée des données. Voici un exemple de la structure des contrôleurs :
+Le backend utilise PHP avec PDO pour une gestion sécurisée des données. Voici la structure réelle de l'API :
 
 ```php
-class TaskController {
-    private $db;
-    
-    public function __construct(PDO $db) {
-        $this->db = $db;
-    }
-    
-    public function createTask(array $data): array {
+// Extrait de tasks.php
+switch ($_SERVER['REQUEST_METHOD']) {
+    case 'GET':
         try {
-            $stmt = $this->db->prepare("
-                INSERT INTO tasks (
-                    title, description, startDate, endDate, 
-                    progress, assignedTo, color
-                ) VALUES (
-                    :title, :description, :startDate, :endDate,
-                    :progress, :assignedTo, :color
-                )
-            ");
+            // Récupérer les tâches triées par ordre
+            $tasks = $pdo->query('SELECT * FROM tasks ORDER BY `order` ASC, id ASC')->fetchAll();
             
-            $stmt->execute($data);
-            return ['success' => true, 'id' => $this->db->lastInsertId()];
+            // Récupérer les dépendances pour chaque tâche
+            $dependencies = $pdo->query('SELECT * FROM task_dependencies')->fetchAll();
+            
+            echo json_encode(['success' => true, 'data' => $tasks]);
         } catch (PDOException $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
-    }
+        break;
 }
 ```
 
 ### Structure de la Base de Données
 
-Le schéma de la base de données est optimisé pour les performances et la cohérence des données :
+Le projet utilise deux tables principales :
 
 ```sql
--- Table principale des tâches
+-- Table des tâches
 CREATE TABLE tasks (
     id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
@@ -129,124 +110,36 @@ CREATE TABLE tasks (
     isParent BOOLEAN DEFAULT false,
     expanded BOOLEAN DEFAULT true,
     parentId INT,
-    `order` INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (parentId) REFERENCES tasks(id) ON DELETE CASCADE,
-    INDEX idx_dates (startDate, endDate),
-    INDEX idx_order (`order`)
+    `order` INT DEFAULT 0
 );
 
--- Table des dépendances entre tâches
+-- Table des dépendances
 CREATE TABLE task_dependencies (
     id INT PRIMARY KEY AUTO_INCREMENT,
     task_from INT NOT NULL,
     task_to INT NOT NULL,
-    FOREIGN KEY (task_from) REFERENCES tasks(id) ON DELETE CASCADE,
-    FOREIGN KEY (task_to) REFERENCES tasks(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_dependency (task_from, task_to)
+    FOREIGN KEY (task_from) REFERENCES tasks(id),
+    FOREIGN KEY (task_to) REFERENCES tasks(id)
 );
 ```
 
-### Optimisations et Performance
+### Fonctionnalités Techniques Implémentées
 
-GanttFlow intègre plusieurs optimisations pour garantir une expérience fluide même avec un grand nombre de tâches :
-
-1. **Gestion de la mémoire** :
-   ```javascript
-   // Exemple de recyclage des éléments DOM pour les grandes listes
-   class VirtualizedTaskList {
-       #visibleItems = new Set();
-       
-       updateVisibleItems(scrollPos) {
-           const visibleRange = this.calculateVisibleRange(scrollPos);
-           this.#recycleHiddenItems(visibleRange);
-           this.#renderVisibleItems(visibleRange);
-       }
-   }
-   ```
-
-2. **Cache et Pagination** :
-   ```php
-   // Exemple de mise en cache des requêtes fréquentes
-   class TaskRepository {
-       private $cache;
-       
-       public function getTasks(int $page = 1, int $limit = 50): array {
-           $cacheKey = "tasks_page_{$page}_{$limit}";
-           
-           if ($this->cache->has($cacheKey)) {
-               return $this->cache->get($cacheKey);
-           }
-           
-           $result = $this->fetchTasksFromDb($page, $limit);
-           $this->cache->set($cacheKey, $result, 300); // Cache for 5 minutes
-           
-           return $result;
-       }
-   }
-   ```
-
-3. **Optimisation des requêtes SQL** :
-   ```sql
-   -- Exemple d'index composite pour les recherches fréquentes
-   CREATE INDEX idx_task_search 
-   ON tasks(assignedTo, startDate, progress);
-   
-   -- Exemple de vue matérialisée pour les statistiques
-   CREATE VIEW task_statistics AS
-   SELECT 
-       assignedTo,
-       COUNT(*) as total_tasks,
-       AVG(progress) as avg_progress
-   FROM tasks
-   GROUP BY assignedTo;
-   ```
+1. **Drag & Drop** : Implémentation native pour la réorganisation des tâches
+2. **Gestion des dépendances** : Système de flèches pour visualiser les liens entre tâches
+3. **Zoom Timeline** : Contrôle de la largeur des colonnes du diagramme
+4. **Redimensionnement** : Barre latérale ajustable
+5. **Gestion Modal** : Interface de création/édition des tâches
+6. **Sécurité basique** : Utilisation de PDO pour les requêtes préparées
 
 ### Sécurité
 
-La sécurité est une priorité, avec plusieurs mesures implémentées :
+La sécurité de base est assurée par :
+- L'utilisation de PDO avec des requêtes préparées
+- La validation des entrées côté serveur
+- Le contrôle des méthodes HTTP autorisées
 
-```php
-// Exemple de middleware de sécurité
-class SecurityMiddleware {
-    public function process(Request $request, callable $next) {
-        // Vérification CSRF
-        if (!$this->validateCsrfToken($request)) {
-            throw new SecurityException('Invalid CSRF token');
-        }
-        
-        // En-têtes de sécurité
-        header('Content-Security-Policy: default-src \'self\'');
-        header('X-Frame-Options: DENY');
-        header('X-Content-Type-Options: nosniff');
-        
-        return $next($request);
-    }
-}
-```
-
-### Tests et Qualité du Code
-
-Le projet maintient un haut niveau de qualité grâce à des tests automatisés :
-
-```php
-// Exemple de test unitaire
-class TaskTest extends TestCase {
-    public function testTaskCreation() {
-        $taskData = [
-            'title' => 'Test Task',
-            'startDate' => '2024-01-01',
-            'endDate' => '2024-01-10'
-        ];
-        
-        $task = new Task($taskData);
-        
-        $this->assertEquals('Test Task', $task->getTitle());
-        $this->assertTrue($task->getStartDate() <= $task->getEndDate());
-    }
-}
-```
+Cette version reflète fidèlement ce qui est actuellement implémenté dans le code source du projet.
 
 ## 📦 Installation et Déploiement
 
